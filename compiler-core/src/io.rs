@@ -138,6 +138,7 @@ pub trait CommandExecutor {
         env: &[(&str, String)],
         cwd: Option<&Path>,
         stdio: Stdio,
+        stderr: Stderr,
     ) -> Result<i32, Error>;
 }
 
@@ -152,6 +153,22 @@ impl Stdio {
         match self {
             Stdio::Inherit => std::process::Stdio::inherit(),
             Stdio::Null => std::process::Stdio::null(),
+        }
+    }
+}
+
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Stderr {
+    Inherit,
+    Null,
+}
+
+impl Stderr {
+    pub fn get_process_stderr(&self) -> std::process::Stdio {
+        match self {
+            Stderr::Inherit => std::process::Stdio::inherit(),
+            Stderr::Null => std::process::Stdio::null(),
         }
     }
 }
@@ -304,6 +321,7 @@ pub mod test {
             _env: &[(&str, String)],
             _cwd: Option<&Path>,
             _stdio: Stdio,
+            _stderr: Stderr,
         ) -> Result<i32, Error> {
             Ok(0)
         }

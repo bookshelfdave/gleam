@@ -6,7 +6,7 @@ use crate::{
     error,
     io::{
         memory::InMemoryFileSystem, CommandExecutor, FileSystemIO, FileSystemReader,
-        FileSystemWriter, Stdio,
+        FileSystemWriter, Stdio, Stderr
     },
     metadata::ModuleEncoder,
     parse::extra::ModuleExtra,
@@ -44,6 +44,7 @@ pub struct PackageCompiler<'a, IO> {
     pub copy_native_files: bool,
     pub compile_beam_bytecode: bool,
     pub subprocess_stdio: Stdio,
+    pub subprocess_stderr: Stderr,
     pub build_journal: Option<&'a mut HashSet<PathBuf>>,
 }
 
@@ -80,6 +81,7 @@ where
             copy_native_files: true,
             compile_beam_bytecode: true,
             subprocess_stdio: Stdio::Inherit,
+            subprocess_stderr: Stderr::Inherit,
             build_journal,
         }
     }
@@ -161,7 +163,7 @@ where
         // Write a temporary journal of compiled Beam files
         let status = self
             .io
-            .exec("escript", &args, &[], None, self.subprocess_stdio)?;
+            .exec("escript", &args, &[], None, self.subprocess_stdio, self.subprocess_stderr)?;
 
         let tmp_journal = self.lib.join("gleam_build_journal.tmp");
         if self.io.is_file(&tmp_journal) {
@@ -245,6 +247,7 @@ where
                             &self.io,
                             &self.lib.to_path_buf(),
                             self.subprocess_stdio,
+                            self.subprocess_stderr,
                         )?;
                         // Check Elixir libs just once
                         check_elixir_libs = false;
@@ -502,6 +505,7 @@ pub fn maybe_link_elixir_libs<IO: CommandExecutor + FileSystemIO + Clone>(
     io: &IO,
     build_dir: &PathBuf,
     subprocess_stdio: Stdio,
+    subprocess_stderr: Stderr,
 ) -> Result<(), Error> {
     // These Elixir core libs will be loaded with the current project
     // Each should be linked into build/{target}/erlang if:
@@ -540,6 +544,7 @@ pub fn maybe_link_elixir_libs<IO: CommandExecutor + FileSystemIO + Clone>(
             &env,
             Some(&build_dir),
             subprocess_stdio,
+            subprocess_stderr,
         )?;
         if status != 0 {
             return Err(Error::ShellCommand {

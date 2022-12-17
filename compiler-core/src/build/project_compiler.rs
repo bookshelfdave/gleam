@@ -6,7 +6,7 @@ use crate::{
     codegen::{self, ErlangApp},
     config::PackageConfig,
     error::{FileIoAction, FileKind},
-    io::{CommandExecutor, FileSystemIO, FileSystemWriter, Stdio},
+    io::{CommandExecutor, FileSystemIO, FileSystemWriter, Stdio, Stderr},
     manifest::ManifestPackage,
     metadata, paths, type_,
     uid::UniqueIdGenerator,
@@ -64,6 +64,7 @@ pub struct ProjectCompiler<IO> {
     /// We may want to silence subprocess stdout if we are running in LSP mode.
     /// The language server talks over stdio so printing would break that.
     pub subprocess_stdio: Stdio,
+    pub subprocess_stderr: Stderr,
 }
 
 // TODO: test that tests cannot be imported into src
@@ -91,6 +92,7 @@ where
             ids: UniqueIdGenerator::new(),
             warnings: Vec::new(),
             subprocess_stdio: Stdio::Inherit,
+            subprocess_stderr: Stderr::Inherit,
             telemetry,
             packages,
             options,
@@ -323,6 +325,7 @@ where
             &env,
             Some(&project_dir),
             self.subprocess_stdio,
+            self.subprocess_stderr,
         )?;
 
         if status == 0 {
@@ -363,7 +366,7 @@ where
         let dest = paths::build_package(mode, target, name);
 
         // Elixir core libs must be loaded
-        package_compiler::maybe_link_elixir_libs(&self.io, &build_dir, self.subprocess_stdio)?;
+        package_compiler::maybe_link_elixir_libs(&self.io, &build_dir, self.subprocess_stdio, self.subprocess_stderr)?;
 
         // Prevent Mix.Compilers.ApplicationTracer warnings
         // mix would make this if it didn't exist, but we make it anyway as
@@ -402,6 +405,7 @@ where
             &env,
             Some(&project_dir),
             self.subprocess_stdio,
+            self.subprocess_stderr,
         )?;
 
         if status == 0 {
@@ -483,6 +487,7 @@ where
         compiler.write_entrypoint = is_root;
         compiler.compile_beam_bytecode = !is_root || self.options.perform_codegen;
         compiler.subprocess_stdio = self.subprocess_stdio;
+        compiler.subprocess_stderr = self.subprocess_stderr;
         compiler.read_source_files(mode)?;
 
         // Compile project to Erlang or JavaScript source code

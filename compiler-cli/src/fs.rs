@@ -1,7 +1,7 @@
 use gleam_core::{
     error::{Error, FileIoAction, FileKind},
     io::{
-        CommandExecutor, DirEntry, FileSystemIO, FileSystemWriter, OutputFile, ReadDir, Stdio,
+        CommandExecutor, DirEntry, FileSystemIO, FileSystemWriter, OutputFile, ReadDir, Stdio, Stderr,
         WrappedReader, WrappedWriter,
     },
     Result,
@@ -132,12 +132,14 @@ impl CommandExecutor for ProjectIO {
         env: &[(&str, String)],
         cwd: Option<&Path>,
         stdio: Stdio,
+        stderr: Stderr,
     ) -> Result<i32, Error> {
         tracing::debug!(program=program, args=?args.join(" "), env=?env, cwd=?cwd, "command_exec");
         let result = std::process::Command::new(program)
             .args(args)
             .stdin(stdio.get_process_stdio())
             .stdout(stdio.get_process_stdio())
+            .stderr(stderr.get_process_stderr())
             .envs(env.iter().map(|(a, b)| (a, b)))
             .current_dir(cwd.unwrap_or_else(|| Path::new("./")))
             .status();
@@ -549,12 +551,49 @@ pub fn hardlink(from: impl AsRef<Path> + Debug, to: impl AsRef<Path> + Debug) ->
         .map(|_| ())
 }
 
+
+pub fn is_inside_git_work_tree(path: &Path) -> Result<bool, Error> {
+    tracing::debug!(path=?path, "check if we're inside a git work tree");
+
+    let args = vec![//"-C".into(),
+        //path.to_string_lossy().into(),
+        "rev-parse".into(),
+        "--is-inside-work-tree".into(),
+        "--quiet".into()];
+
+    match ProjectIO::new().exec("git", &args, &[], Some(&path), Stdio::Null, Stderr::Null) {
+        Ok(status) => match status {
+            0 => Ok(true),
+            _ => Ok(false),
+        }
+        Err(err) => match err {
+            // don't match on ShellProgramNotFound here, return an error instead
+            _ => Err(Error::GitInitialization {
+                error: err.to_string(),
+            }),
+        }
+    }
+}
+
+#[test]
+fn is_inside_git_work_tree_test() {
+    assert!(is_inside_git_work_tree( Path::new(".")).unwrap());
+    assert!(!is_inside_git_work_tree( Path::new("/")).unwrap())
+ }
+
 pub fn git_init(path: &Path) -> Result<(), Error> {
     tracing::debug!(path=?path, "initializing git");
 
+    if is_inside_git_work_tree(&path)? {
+        tracing::debug!(path=?path, "already inside a git work tree");
+        return Err(Error::GitInitialization {
+            error: "Gleam root is already in a Git work tree".to_string(),
+        })
+    }
+
     let args = vec!["init".into(), "--quiet".into(), path.display().to_string()];
 
-    match ProjectIO::new().exec("git", &args, &[], None, Stdio::Inherit) {
+    match ProjectIO::new().exec("git", &args, &[], None, Stdio::Inherit, Stderr::Inherit) {
         Ok(_) => Ok(()),
         Err(err) => match err {
             Error::ShellProgramNotFound { .. } => Ok(()),

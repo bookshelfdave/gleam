@@ -2,7 +2,7 @@ use gleam_core::{
     build::{Mode, Options, Target},
     config::PackageConfig,
     error::Error,
-    io::{CommandExecutor, Stdio},
+    io::{CommandExecutor, Stdio, Stderr},
     paths,
 };
 
@@ -67,7 +67,7 @@ fn run_erlang(module: &str, arguments: Vec<String>) -> Result<i32, Error> {
         args.push(argument);
     }
 
-    ProjectIO::new().exec("erl", &args, &[], None, Stdio::Inherit)
+    ProjectIO::new().exec("erl", &args, &[], None, Stdio::Inherit, Stderr::Inherit)
 }
 
 fn run_javascript(
@@ -92,5 +92,5 @@ fn run_javascript(
         args.push(argument);
     }
 
-    ProjectIO::new().exec("node", &args, &[], None, Stdio::Inherit)
+    ProjectIO::new().exec("node", &args, &[], None, Stdio::Inherit, Stderr::Inherit)
 }
