@@ -425,6 +425,7 @@ impl<'a, 'b> ExprTyper<'a, 'b> {
             location,
             annotation,
             type_: typ,
+            default_value: None,
         })
     }
 
@@ -2140,6 +2141,7 @@ fn use_assignments_to_function_arguments(assignments: Vec<(AssignName, SrcSpan)>
             location,
             annotation: None,
             type_: (),
+            default_value: None,
         })
         .collect()
 }

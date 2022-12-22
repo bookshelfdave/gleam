@@ -165,6 +165,7 @@ pub struct Arg<T> {
     pub location: SrcSpan,
     pub annotation: Option<TypeAst>,
     pub type_: T,
+    pub default_value: Option<UntypedExpr>,
 }
 
 impl<A> Arg<A> {
@@ -174,6 +175,7 @@ impl<A> Arg<A> {
             names: self.names,
             location: self.location,
             annotation: self.annotation,
+            default_value: self.default_value,
         }
     }
 

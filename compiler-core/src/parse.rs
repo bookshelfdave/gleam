@@ -1472,6 +1472,7 @@ where
     //   a _
     //   a _:A
     //   a a:A
+    //   TODO: a:A = b
     fn parse_fn_param(&mut self, is_anon: bool) -> Result<Option<UntypedArg>, ParseError> {
         let (start, names, mut end) = match (self.tok0.take(), self.tok1.take()) {
             // labeled discard
@@ -1522,6 +1523,7 @@ where
             (Some((start, Token::Name { name }, end)), t1) => {
                 self.tok1 = t1;
                 let _ = self.next_tok();
+                println!("PARSE FORMAL PARAM: {:?}", name);
                 (start, ArgNames::Named { name }, end)
             }
             (t0, t1) => {
@@ -1536,11 +1538,28 @@ where
         } else {
             None
         };
+
+        //println!("TYPE ANNOTATION = {:?}", annotation);
+
+        let default_value = if self.maybe_one(&Token::Equal).is_some() {
+            println!("Found a default parameter!");
+            if let Some(unit) = self.parse_expression_unit()? {
+                println!("Parsed an expr unit {:?}", unit);
+                Some(unit)
+            } else {
+                println!("Didn't parse an expr unit");
+                None
+            }
+        } else {
+            None
+        };
+
         Ok(Some(Arg {
             location: SrcSpan { start, end },
             type_: (),
             names,
             annotation,
+            default_value,
         }))
     }
 
@@ -3059,6 +3078,7 @@ pub fn make_call(
                     name: CAPTURE_VARIABLE.to_string(),
                 },
                 type_: (),
+                default_value: None,
             }],
             body: Box::new(call),
             return_annotation: None,
